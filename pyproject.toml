@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "drone-battle"
+version = "0.0.1"
+description = "Drone Swarm Battle: a two-team zero-sum stochastic game environment (AA228)"
+requires-python = ">=3.11"
+dependencies = ["numpy", "matplotlib"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.setuptools]
+packages = ["drone_battle"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+# `pytest -q` runs the fast tests only; `pytest -m slow` runs the statistical and long ones;
+# `pytest -m ""` runs everything.
+addopts = "-m 'not slow'"
+markers = ["slow: statistical or long tests (many trials or episodes)"]
