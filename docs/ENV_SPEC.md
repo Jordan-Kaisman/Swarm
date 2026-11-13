@@ -28,12 +28,19 @@ drone_battle/
   state.py      # State dataclass, copy(), team/index helpers
   geometry.py   # wrap, pairwise distance/bearing, in_cone, hit probability
   actions.py    # direction table, encoding, legal_actions(cfg)
-  mirror.py     # mirror_state, mirror_action
+  mirror.py     # mirror_state, mirror_action, mirror_team_action, swap_blocks
   env.py        # reset, step (phases as private functions), observe
-  render.py     # render(state, cfg, info), animate(trajectory, cfg, path)
-  policies.py   # random, rusher, hunter, defender
-scripts/run_match.py, scripts/bench.py
+  render.py     # render(state, cfg, info), animate(trajectory, cfg, path), length_histogram
+  policies.py   # random, rusher, hunter, defender, raid, raid_strafe, split
+  match.py      # play_episode, run_match, outcome classification, return terms, summarize
+scripts/
+  run_match.py  # one matchup: outcomes, returns, lengths (§12)
+  metagame.py   # payoff matrix, LP equilibrium, bootstrap (§12)
+  sweep.py      # meta-game over arena scale × base_hp, anchored at 30×20 (§12)
+  bench.py      # step timing (§14)
+  show_layouts.py
 tests/
+  conftest.py   # DENSE and SMALL_ARENA (the original 30×20 arena) configs, scenario builders
 docs/ENV_SPEC.md
 ```
 
@@ -57,7 +64,7 @@ docs/ENV_SPEC.md
 
 | Group | Name | Default | Meaning |
 |---|---|---|---|
-| Arena | `width`, `height` | 30.0, 20.0 *(tune)* | Arena size, in step lengths. Crossing takes about 30 steps. |
+| Arena | `width`, `height` | 40.0, 27.0 | Arena size, in step lengths. Crossing takes about 40 steps. |
 | Teams | `n_drones` | 3 | Drones per team. |
 | Dynamics | `step_len` | 1.0 | Length of every move (the same in all directions). |
 | | `turn_delta` | π/4 | Turn increment per step. Must be ≤ min weapon cone (validate). |
@@ -74,22 +81,22 @@ docs/ENV_SPEC.md
 | Sensing | `sense_range`, `sense_cone` | 8.0, 2π | **Unused in v0.** Reserved for fog of war. |
 | Bases | `bases_per_team` | 2 | B. |
 | | `base_values` | [1.0, 1.0] | Blue base values. Red's are mirrored. |
-| | `base_hp` | 5 *(tune)* | Hits needed to destroy a base. |
+| | `base_hp` | 5 | Hits needed to destroy a base. |
 | | `base_hit_prob` | 1.0 | Per-shot hit probability against a base in cone and range. |
-| | `base_min_mid` | 5.0 | Minimum distance from a base to the midline. |
-| | `base_min_wall` | 2.0 | Minimum distance from a base to the outer walls. |
-| | `base_min_sep` | 4.0 | Minimum distance between same-team bases. |
+| | `base_min_mid` | 6.5 | Minimum distance from a base to the midline. |
+| | `base_min_wall` | 2.5 | Minimum distance from a base to the outer walls. |
+| | `base_min_sep` | 5.5 | Minimum distance between same-team bases. |
 | | `base_layout` | `None` | `None` = random. Otherwise an explicit list of blue base positions. |
 | Init | `placement` | `"zone"` | `"zone"` or `"bases"`. |
-| | `zone_mid_min`, `zone_mid_max` | 3.0, 8.0 *(tune)* | The deployment band's distance from the midline (the curriculum knob). |
-| | `zone_wall_margin` | 2.0 | Minimum spawn distance from the top and bottom walls. |
+| | `zone_mid_min`, `zone_mid_max` | 4.0, 10.5 | The deployment band's distance from the midline (the curriculum knob). |
+| | `zone_wall_margin` | 2.5 | Minimum spawn distance from the top and bottom walls. |
 | | `bases_spawn_radius` | 2.0 | Spawn radius around a base for `"bases"` placement. |
 | | `drone_min_sep` | 1.5 | Minimum spacing between same-team drones at spawn. |
 | | `mirror_init` | `True` | Red's spawn is the mirror image of blue's. |
 | | `random_headings` | `True` | Otherwise drones start facing the enemy half. |
 | Rewards | `drone_value` | 0.1 | Value of one drone: reward per enemy drone killed, minus the same per own drone lost. Low on purpose (§16). |
 | | `elimination_bonus` | `True` | §6.7. |
-| Episode | `max_steps` | 300 | Truncation cap, several times a typical game length. |
+| Episode | `max_steps` | 400 | Truncation cap, several times a typical game length. |
 
 `Config.validate()` checks, at minimum, that:
 - `len(base_values) == bases_per_team`;
@@ -330,7 +337,7 @@ Report:
 - Report: A ± SE; the truncation fraction and median length (IQR) per pair; the equilibrium mixture; the bootstrap support frequencies and mean weights; each policy's worst-case payoff (the row minimum of A, which includes the 0 against itself).
 
 **Sweep (`scripts/sweep.py`).** Runs the meta-game over a grid of configs and prints one summary table.
-- Arena scale s (default 1.0, 1.33, 1.67): width = 30s, height = 20s, base_min_mid = 5s, base_min_wall = 2s, base_min_sep = 4s, zone_mid_min = 3s, zone_mid_max = 8s, zone_wall_margin = 2s, max_steps = round(300s). Drone parameters (step length, turning, weapon range and cone, hit model) are unchanged.
+- Arena scale s (default 1.0, 1.33, 1.67), relative to the original 30×20 arena rather than the current defaults, so earlier sweep results reproduce: width = 30s, height = 20s, base_min_mid = 5s, base_min_wall = 2s, base_min_sep = 4s, zone_mid_min = 3s, zone_mid_max = 8s, zone_wall_margin = 2s, max_steps = round(300s). Drone parameters (step length, turning, weapon range and cone, hit model) are unchanged.
 - `base_hp` (default 3, 5, 8). The 9 configs use the same 6 policies, seed 0 and 1000 games per pair. Each keeps its own `out/metagame_<timestamp>_s<s>_hp<hp>.json`; `--load` rebuilds the summary from saved runs.
 - Summary row per config: the equilibrium mixture (weights ≥ 0.01) and its support size; the bootstrap support frequency per policy; the median game length over all non-mirror pairs; the largest truncation fraction over pairs and its pair; the share of non-truncated games ending by base knockout, elimination or double knockout; the runtime.
 
@@ -381,17 +388,23 @@ Target: **≤ ~100 μs per step at n = 4** in numpy. Planners will call `step` 1
   - Drones have 1 HP, with probabilistic hits that depend on distance, cone width and motion. Bases have HP and are hit deterministically.
   - Auto-fire, with the targeting rule drones before bases.
   - Simultaneous resolution of moves and shots.
-  - Zero-sum rewards from base values, plus the elimination bonus; drone kills are worth 0 by default.
+  - Zero-sum rewards from base values, plus the elimination bonus; drone kills are worth 0 by default (superseded: drone_value = 0.1, below).
   - The time cap counts as truncation, not as a game outcome.
   - Mirrored bases and spawns, with a deployment zone placed back from the midline.
   - (v1) Sensing range will be larger than weapon range.
   - `kill_reward` renamed to `drone_value`; default 0 → 0.1. drone_value = 0.1 (low). Drones are cheap and attritable: a full team (n=3) is worth less than one base. It stands in for the value surviving drones keep after the episode (limited supply). In an undiscounted zero-sum game, a per-kill reward equals a terminal reward of drone_value per surviving drone.
+  - Arena scaled ≈4/3 (40×27) with base_hp 5, chosen from the 2026-11-13 scale × base_hp sweep: richest scripted equilibrium among the sweep configs: raid as the backbone (weight 0.6–0.85), rusher and hunter almost always in the support, defender and split marginal (bootstrap support frequency ≈0.3–0.85 across seeds 0–1 and the sweep run), median length ≈ 24 steps. At ≈5/3 scale defender left the equilibrium (larger maps favor attack). Room for fog of war will be tuned via sense_range, not map size. New defaults: width 40, height 27, base_hp 5, base_min_mid 6.5, base_min_wall 2.5, base_min_sep 5.5, zone_mid_min 4.0, zone_mid_max 10.5, zone_wall_margin 2.5, max_steps 400 (was 30×20, base_min_mid 5, base_min_wall 2, base_min_sep 4, zone 3–8, zone_wall_margin 2, max_steps 300). Confirmation runs at seeds 0 and 1 (2000 games/pair) agree on everything except whether defender and split enter the LP equilibrium; balance claims should rest on bootstrap support frequencies pooled over seeds, not on a single LP solution.
+  - Elimination bonus kept at the full remaining base value. It is the only value with no perverse incentive: with a partial bonus (or none), a team able to finish the enemy prefers to spare its last drone and destroy bases first; with the full bonus the two are worth the same (up to discounting). Consequence (2026-11-13 diagnostic): earlier base damage pays only in games you lose or draw, and keeping a reserve drone insures against forfeiting all bases.
 
 ## 17. Open questions (settle through balance runs)
 
-- `base_hp` relative to the defenders' response time, which sets the rush vs. turtle balance. Watch game length and the truncation fraction.
-- The deployment zone's distance from the midline (curriculum).
+Still open:
 - The sizes of α and β.
-- `n_drones` and the arena size.
-- Whether mutual elimination should stay a draw.
+- `n_drones`.
 - `drone_value` relative to base value, as a later sweep axis. It only matters once policies optimize reward; the scripted policies ignore it.
+
+Resolved (2026-11-13, §16):
+- Arena size: 40×27.
+- `base_hp` relative to the defenders' response time: 5.
+- The deployment zone's distance from the midline: scaled with the arena (4.0–10.5).
+- Mutual elimination stays a draw.

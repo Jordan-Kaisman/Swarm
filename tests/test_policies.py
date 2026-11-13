@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from conftest import DENSE, hover, one_v_one, scenario
+from conftest import DENSE, SMALL_ARENA, hover, one_v_one, scenario
 from drone_battle.actions import legal_table
 from drone_battle.config import Config
 from drone_battle.env import _step_with_uniforms, observe, reset
@@ -116,7 +116,7 @@ FAR_RED = [[29.0, 1.0], [29.5, 2.5], [28.0, 0.5]]   # parked in a corner, facing
 @pytest.mark.parametrize("move_dirs", [4, 8])
 @pytest.mark.parametrize("mode", ["simultaneous", "exclusive"])
 def test_unopposed_raid_keeps_the_pack_together(move_dirs, mode):
-    cfg = Config(base_layout=RAID_LAYOUT, move_dirs=move_dirs, move_turn_mode=mode)
+    cfg = Config(**SMALL_ARENA, base_layout=RAID_LAYOUT, move_dirs=move_dirs, move_turn_mode=mode)
     n, r_group = cfg.n_drones, 2.5
     # Centroid (6, 10.7) is nearest red's base at (26, 16). Distances to it: 21.2, 17.7, 23.3,
     # so the pack starts 5.6 deep and drone 1, the front one, must wait.
@@ -157,7 +157,7 @@ def test_raid_strafe_moves_across_the_line_of_fire():
 
 
 def test_split_assigns_roles_by_index():
-    cfg = Config(base_layout=RAID_LAYOUT)
+    cfg = Config(**SMALL_ARENA, base_layout=RAID_LAYOUT)
     n = cfg.n_drones
     # Drone 0 sits by its base; drones 1 and 2 are forward with a small spread. If drone 0 were
     # part of the pack, it would be the rearmost and the other two would wait for it.

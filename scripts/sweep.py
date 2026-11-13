@@ -25,6 +25,7 @@ import _path  # noqa: F401
 import metagame
 from drone_battle.config import Config
 
+# Anchored to the original 30x20 arena (not the current Config defaults) so earlier sweep results reproduce.
 SCALED = {"width": 30.0, "height": 20.0, "base_min_mid": 5.0, "base_min_wall": 2.0, "base_min_sep": 4.0,
           "zone_mid_min": 3.0, "zone_mid_max": 8.0, "zone_wall_margin": 2.0}
 BASE_MAX_STEPS = 300

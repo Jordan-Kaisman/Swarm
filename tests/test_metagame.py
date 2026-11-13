@@ -100,8 +100,12 @@ def test_scaled_configs_are_valid_and_reset(scale, base_hp):
     assert np.all(s.pos[:, 0] <= cfg.width) and np.all(s.pos[:, 1] <= cfg.height)
 
 
-def test_scale_one_hp_five_is_the_default_config():
-    assert sweep.scaled_config(1.0, 5) == Config()
+def test_sweep_grid_is_anchored_to_the_original_arena():
+    # The scale grid is relative to the original 30x20 arena, not to the current defaults,
+    # so earlier sweep results reproduce.
+    from conftest import SMALL_ARENA
+    assert sweep.SCALED == SMALL_ARENA
+    assert sweep.scaled_config(1.0, 5) == Config(**SMALL_ARENA, max_steps=300, base_hp=5)
 
 
 def test_sweep_summary_row():

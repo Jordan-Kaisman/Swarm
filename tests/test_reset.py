@@ -66,7 +66,7 @@ def test_explicit_base_layout(rng):
     cfg = Config(base_layout=layout)
     s = reset(cfg, rng)
     np.testing.assert_array_equal(s.base_pos[:2], layout)
-    np.testing.assert_array_equal(s.base_pos[2:], [[27.0, 4.0], [24.0, 15.0]])
+    np.testing.assert_array_equal(s.base_pos[2:], [[cfg.width - 3.0, 4.0], [cfg.width - 6.0, 15.0]])
 
 
 def test_impossible_constraints_raise(rng):

@@ -18,10 +18,15 @@ DENSE = dict(width=16.0, height=10.0, base_min_mid=2.0, base_min_wall=1.0, base_
              zone_mid_min=0.5, zone_mid_max=3.0, zone_wall_margin=1.0, drone_min_sep=1.0,
              base_hp=2)
 
+# The original 30x20 arena (the defaults before 2026-11-13). Hand-placed scenarios use it
+# so their coordinates keep their meaning; the sweep's scale grid is anchored to it too.
+SMALL_ARENA = dict(width=30.0, height=20.0, base_min_mid=5.0, base_min_wall=2.0, base_min_sep=4.0,
+                   zone_mid_min=3.0, zone_mid_max=8.0, zone_wall_margin=2.0)
+
 
 def one_v_one(**overrides) -> Config:
-    """1 drone and B bases per team at fixed spots far from the middle of the arena."""
-    kw = dict(n_drones=1, bases_per_team=1, base_values=(1.0,), base_layout=((2.0, 10.0),))
+    """1 drone and B bases per team at fixed spots far from the middle of the 30x20 arena."""
+    kw = dict(SMALL_ARENA, n_drones=1, bases_per_team=1, base_values=(1.0,), base_layout=((2.0, 10.0),))
     kw.update(overrides)
     return Config(**kw)
 

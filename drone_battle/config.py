@@ -30,8 +30,8 @@ class Config:
     """
 
     # Arena
-    width: float = 30.0
-    height: float = 20.0
+    width: float = 40.0
+    height: float = 27.0
     # Teams
     n_drones: int = 3
     # Dynamics
@@ -56,15 +56,15 @@ class Config:
     base_values: tuple[float, ...] = (1.0, 1.0)
     base_hp: int = 5
     base_hit_prob: float = 1.0
-    base_min_mid: float = 5.0
-    base_min_wall: float = 2.0
-    base_min_sep: float = 4.0
+    base_min_mid: float = 6.5
+    base_min_wall: float = 2.5
+    base_min_sep: float = 5.5
     base_layout: tuple[tuple[float, float], ...] | None = None
     # Init
     placement: str = "zone"
-    zone_mid_min: float = 3.0
-    zone_mid_max: float = 8.0
-    zone_wall_margin: float = 2.0
+    zone_mid_min: float = 4.0
+    zone_mid_max: float = 10.5
+    zone_wall_margin: float = 2.5
     bases_spawn_radius: float = 2.0
     drone_min_sep: float = 1.5
     mirror_init: bool = True
@@ -73,7 +73,7 @@ class Config:
     drone_value: float = 0.1
     elimination_bonus: bool = True
     # Episode
-    max_steps: int = 300
+    max_steps: int = 400
 
     def __post_init__(self) -> None:
         # Normalize sequences to tuples so the config stays hashable and immutable.
