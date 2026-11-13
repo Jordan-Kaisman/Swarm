@@ -281,6 +281,15 @@ Signature: `policy(obs, cfg, rng) -> (n, 2) int array`, in the canonical frame. 
 - **rusher:** moves toward the nearest alive enemy base and turns toward it.
 - **hunter:** moves toward the nearest alive enemy drone and turns toward it.
 - **defender:** stays within a radius `r_def` (default 4) of its nearest own base, turns toward the nearest enemy drone, and moves to intercept enemies that enter its own half.
+- **raid** (`r_group` = 2.5, `engage_margin` = 2): the whole team attacks one enemy base together.
+  - Target: the alive enemy base nearest the centroid of the team's alive drones, recomputed every step.
+  - Cohesion: let D_i be the distance from drone i to the target and D_max the maximum over alive teammates. Drone i advances toward the target iff `D_i ≥ D_max − r_group`; otherwise it hovers. The pack advances at the pace of its rearmost drone.
+  - Facing: toward the nearest enemy drone if it is within `weapon_range + engage_margin`; otherwise toward the target.
+  - In weapon range of the target with no enemy drone within `weapon_range + engage_margin`: hover.
+- **raid_strafe:** as raid, but when an enemy drone is within `weapon_range + engage_margin`, an advancing drone moves in the legal direction closest to perpendicular to its line of fire to the nearest enemy drone, on the side with the larger component toward the target (this exploits α). On an exact tie between the sides, it takes the counter-clockwise one; with the enemy drone at distance 0 (no line of fire), it moves as raid.
+- **split** (`k` = 1): drones with canonical index < k run defender; the rest run raid as a pack of their own (the centroid and D_max are over the raiders only). Roles are fixed by index.
+
+In `exclusive` mode, every scripted policy turns when its aim point is within weapon range + one step and outside its cone, and moves otherwise.
 
 Helpers:
 - *Turn toward X:* pick the turn that minimizes `|wrap(bearing_X − ψ)|` after turning.
@@ -308,9 +317,22 @@ Report:
 - the knockout outcome: wins, losses and draws by cause, and truncated games;
 - the return-based outcome, overall and as a cross-tab against the knockout categories, with the number of disagreements;
 - episode length: mean ± std, median and interquartile range, and the truncation fraction;
-- blue's mean return ± standard error;
+- blue's mean return ± standard error, decomposed into its base-value term (bases destroyed), elimination-bonus term and drone-value term (`drone_value` × survivor difference), each ± SE;
 - drone kills and base kills per team;
 - shots fired and hit rate.
+
+**Meta-game (`scripts/metagame.py`, needs scipy).**
+- Policies (default): rusher, hunter, defender, raid, raid_strafe, split. Default config, seed 0, 2000 games per unordered pair i < j with i as blue (15 pairs). Every pair uses the same game seeds.
+- Payoff matrix: `A[i, j]` = blue's mean return, `A[j, i] = −A[i, j]`, diagonal 0. Exact mirror symmetry makes the reversed order and the mirror pairs redundant, so they are not simulated.
+- Equilibrium: the symmetric zero-sum matrix game is solved by linear programming (maximize v subject to `Aᵀx ≥ v`, x a probability vector). Its value is 0 because A is skew-symmetric. When several equilibria exist, the LP returns one of them.
+- Bootstrap: 200 resamples of games within each cell. Each resample recomputes A and the equilibrium. The report gives each policy's support frequency (weight > 0.01) and its mean weight.
+- Per-game results (return, length, truncated, cause, winner) are saved to `out/metagame_<timestamp>.json`. `--load PATH` recomputes the tables from that file without re-running the games.
+- Report: A ± SE; the truncation fraction and median length (IQR) per pair; the equilibrium mixture; the bootstrap support frequencies and mean weights; each policy's worst-case payoff (the row minimum of A, which includes the 0 against itself).
+
+**Sweep (`scripts/sweep.py`).** Runs the meta-game over a grid of configs and prints one summary table.
+- Arena scale s (default 1.0, 1.33, 1.67): width = 30s, height = 20s, base_min_mid = 5s, base_min_wall = 2s, base_min_sep = 4s, zone_mid_min = 3s, zone_mid_max = 8s, zone_wall_margin = 2s, max_steps = round(300s). Drone parameters (step length, turning, weapon range and cone, hit model) are unchanged.
+- `base_hp` (default 3, 5, 8). The 9 configs use the same 6 policies, seed 0 and 1000 games per pair. Each keeps its own `out/metagame_<timestamp>_s<s>_hp<hp>.json`; `--load` rebuilds the summary from saved runs.
+- Summary row per config: the equilibrium mixture (weights ≥ 0.01) and its support size; the bootstrap support frequency per policy; the median game length over all non-mirror pairs; the largest truncation fraction over pairs and its pair; the share of non-truncated games ending by base knockout, elimination or double knockout; the runtime.
 
 ---
 

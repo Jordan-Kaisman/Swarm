@@ -11,6 +11,7 @@ dependencies = ["numpy", "matplotlib"]
 
 [project.optional-dependencies]
 test = ["pytest"]
+analysis = ["scipy"]   # scripts/metagame.py
 
 [tool.setuptools]
 packages = ["drone_battle"]

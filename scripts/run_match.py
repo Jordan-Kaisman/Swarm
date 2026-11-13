@@ -16,8 +16,8 @@ import time
 
 import _path  # noqa: F401
 from drone_battle.config import config_from_overrides
-from drone_battle.match import (KNOCKOUT_ROWS, RETURN_OUTCOMES, TRUNCATED, game_seeds, knockout_bucket,
-                                play_episode, summarize)
+from drone_battle.match import (KNOCKOUT_ROWS, RETURN_OUTCOMES, RETURN_TERMS, TRUNCATED, game_seeds,
+                                knockout_bucket, play_episode, summarize)
 from drone_battle.policies import POLICIES, get_policy
 
 CAUSE_LABELS = {
@@ -77,6 +77,8 @@ def format_report(stats: dict, blue: str, red: str, seed: int, elapsed: float) -
                  f" median {stats['length_median']:g}, IQR {stats['length_q1']:g}-{stats['length_q3']:g}"
                  f"   truncated fraction {stats['truncated_frac']:.3f}")
     lines.append(f"Blue mean return   {stats['return_mean']:+.4f} +- {stats['return_se']:.4f} (SE)")
+    for name, m, se in zip(RETURN_TERMS, stats["terms_mean"], stats["terms_se"]):
+        lines.append(f"  {name + ' term':<24s}{m:+.4f} +- {se:.4f}")
     lines.append("")
     lines.append(f"{'per game':<20s}{'blue':>10s}{'red':>10s}")
     dk, bk = stats["drone_kills"], stats["base_kills"]

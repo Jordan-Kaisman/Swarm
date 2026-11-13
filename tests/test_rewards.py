@@ -167,17 +167,18 @@ def test_step_draws_exactly_2n_uniforms():
 
 
 # ------------------------------------------------- episode return identity
-def implied_return(cfg, final):
-    """Episode return from the final state alone: the base-value term (bases destroyed, plus the
-    elimination bonus) + drone_value * (blue survivors - red survivors). Undiscounted, a reward
-    per kill adds up to a terminal reward of drone_value per surviving drone."""
+def implied_terms(cfg, final):
+    """Episode return from the final state alone, as (bases destroyed, elimination bonus,
+    drone_value * (blue survivors - red survivors)). Undiscounted, a reward per kill adds up to
+    a terminal reward of drone_value per surviving drone."""
     n, B = final.n, final.B
     v, up = final.base_value, final.base_hp > 0
     base = v[B:][~up[B:]].sum() - v[:B][~up[:B]].sum()
     blue_left, red_left = int(final.alive[:n].sum()), int(final.alive[n:].sum())
+    bonus = 0.0
     if cfg.elimination_bonus and (blue_left == 0) != (red_left == 0):
-        base += v[B:][up[B:]].sum() if blue_left else -v[:B][up[:B]].sum()
-    return base + cfg.drone_value * (blue_left - red_left)
+        bonus = v[B:][up[B:]].sum() if blue_left else -v[:B][up[:B]].sum()
+    return np.array([base, bonus, cfg.drone_value * (blue_left - red_left)])
 
 
 IDENTITY_CONFIGS = {
@@ -198,7 +199,9 @@ def test_episode_return_identity(name):
             for _ in range(2):
                 res = play_episode(cfg, POLICIES[b], POLICIES[r], next(seeds), record=True)
                 final = res.trajectory[-1][0]
-                assert res.blue_return == pytest.approx(implied_return(cfg, final), abs=1e-9)
+                terms = implied_terms(cfg, final)
+                assert res.blue_return == pytest.approx(terms.sum(), abs=1e-9)
+                np.testing.assert_allclose(res.return_terms, terms, atol=1e-12)   # the reported split
                 games += 1
                 kills += int(res.drone_kills.sum())
     assert games == 2 * len(names) ** 2 and kills > games   # drone kills actually happened

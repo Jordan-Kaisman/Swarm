@@ -61,6 +61,7 @@ class EpisodeResult:
     hits_drone: np.ndarray      # (2,)
     shots_base: np.ndarray      # (2,) shots at bases
     hits_base: np.ndarray       # (2,)
+    return_terms: np.ndarray    # (3,) blue_return split into RETURN_TERMS; sums to blue_return
     trajectory: list | None = field(default=None, repr=False)
 
 
@@ -88,6 +89,26 @@ def classify_outcome(cfg: Config, state: State, truncated: bool) -> tuple[int | 
         return None, MUTUAL_ELIMINATION if not any(has_drones) else SIMULTANEOUS
     loser = BLUE if out[BLUE] else RED
     return 1 - loser, ELIMINATION if not has_drones[loser] else BASES
+
+
+RETURN_TERMS = ("base-value", "elimination bonus", "drone-value")
+
+
+def return_terms(cfg: Config, state: State) -> np.ndarray:
+    """Blue's episode return split into RETURN_TERMS, from the final state of an episode that
+    started from reset() (spec §6.7):
+    - base-value: value of red bases destroyed - value of blue bases destroyed;
+    - elimination bonus: +- the eliminated team's alive bases, if exactly one team has no drones;
+    - drone-value: drone_value * (blue survivors - red survivors), the per-kill rewards summed.
+    """
+    n, B = state.n, state.B
+    v, up = state.base_value, state.base_hp > 0
+    base = float(v[B:][~up[B:]].sum() - v[:B][~up[:B]].sum())
+    blue_left, red_left = int(np.count_nonzero(state.alive[:n])), int(np.count_nonzero(state.alive[n:]))
+    bonus = 0.0
+    if cfg.elimination_bonus and (blue_left == 0) != (red_left == 0):
+        bonus = float(v[B:][up[B:]].sum()) if blue_left else -float(v[:B][up[:B]].sum())
+    return np.array([base, bonus, cfg.drone_value * (blue_left - red_left)])
 
 
 def knockout_bucket(result: EpisodeResult) -> str:
@@ -147,7 +168,7 @@ def play_episode(cfg: Config, blue_policy, red_policy, seed, record: bool = Fals
         blue_return=total, length=state.t, terminated=terminated, truncated=truncated,
         winner=winner, cause=cause, drone_kills=drone_kills, base_kills=base_kills,
         shots_drone=shots[:, 0], hits_drone=hits[:, 0], shots_base=shots[:, 1], hits_base=hits[:, 1],
-        trajectory=trajectory,
+        return_terms=return_terms(cfg, state), trajectory=trajectory,
     )
 
 
@@ -173,6 +194,7 @@ def summarize(results: list[EpisodeResult]) -> dict:
         crosstab[bucket, r.cause][ro] += 1
         disagreements[bucket, r.cause] += ro != AGREEING_RETURN[bucket]
     q1, median, q3 = np.percentile(lengths, [25, 50, 75])
+    terms = np.array([r.return_terms for r in results])
 
     def tot(attr: str) -> np.ndarray:
         return np.sum([getattr(r, attr) for r in results], axis=0)
@@ -193,6 +215,8 @@ def summarize(results: list[EpisodeResult]) -> dict:
         "truncated_frac": float(np.mean([r.truncated for r in results])),
         "return_mean": float(returns.mean()),
         "return_se": float(returns.std(ddof=1) / np.sqrt(G)) if G > 1 else 0.0,
+        "terms_mean": terms.mean(axis=0),                                   # (3,), RETURN_TERMS order
+        "terms_se": terms.std(axis=0, ddof=1) / np.sqrt(G) if G > 1 else np.zeros(3),
         "drone_kills": tot("drone_kills"),
         "base_kills": tot("base_kills"),
         "shots_drone": tot("shots_drone"),
