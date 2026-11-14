@@ -18,10 +18,12 @@ import numpy as np
 
 from .actions import HOVER, TURN_NONE, legal_action_array, unit_directions
 from .config import Config, parse_value
-from .geometry import EPS_DIST, wrap
+from .geometry import EPS_DIST, PI, wrap
 from .state import State
 
 Policy = Callable[[State, Config, np.random.Generator], np.ndarray]
+
+ANGLE_TOL = 1e-9   # |sin| tolerance, so directions exactly on a band edge (e.g. 45 degrees) qualify
 
 _TURN_PREFERENCE = np.array([TURN_NONE, 0, 2])  # on ties, prefer not turning
 
@@ -145,16 +147,19 @@ def defender(obs: State, cfg: Config, rng: np.random.Generator, r_def: float = 4
 
 
 def _raid(obs: State, cfg: Config, members: np.ndarray, r_group: float, engage_margin: float,
-          strafe: bool) -> np.ndarray:
+          dodge: str | None = None, min_angle: float = PI / 4) -> np.ndarray:
     """Actions for the drones in `members` attacking one enemy base as a pack; other rows idle.
 
     Target: the alive enemy base nearest the centroid of the pack's alive drones. A drone
     advances iff D_i >= D_max - r_group (D = distance to the target, max over the pack), so
     the pack moves at the pace of its rearmost drone. It faces the nearest enemy drone when
     one is within weapon_range + engage_margin (a threat), else the target. In weapon range
-    of the target with no threat, it hovers. With `strafe`, an advancing drone under threat
-    moves in the legal direction closest to perpendicular to its line of fire to the nearest
-    enemy drone, on the side with the larger component toward the target.
+    of the target with no threat, it hovers. An advancing drone under threat dodges:
+    - dodge="strafe": the legal direction closest to perpendicular to its line of fire to the
+      nearest enemy drone, on the side with the larger component toward the target;
+    - dodge="angle": among the legal directions at an angle in [min_angle, pi - min_angle] to
+      that line of fire, the one with the largest component toward the target.
+    With no line of fire (enemy at distance 0) or no qualifying direction, it moves as raid.
     """
     n, B = cfg.n_drones, cfg.bases_per_team
     pos, heading = obs.pos[:n], obs.heading[:n]
@@ -182,13 +187,23 @@ def _raid(obs: State, cfg: Config, members: np.ndarray, r_group: float, engage_m
     hold = (D <= weapon_range) & ~threat
     move = np.where(advance & ~hold, move_toward(pos, np.broadcast_to(target, pos.shape), cfg), HOVER)
 
-    if strafe and threat.any():
+    if dodge is not None and threat.any():
+        dirs = unit_directions(cfg.move_dirs)
         u = lof / np.maximum(d_foe, EPS_DIST)[:, None]
-        perp = np.stack([-u[:, 1], u[:, 0]], axis=1)                 # CCW normal to the line of fire
-        side = np.where((perp * to_target).sum(axis=1) >= 0, 1.0, -1.0)
-        sideways = (perp * side[:, None]) @ unit_directions(cfg.move_dirs).T
-        dodge = advance & threat & (d_foe > EPS_DIST)                # no line of fire at d = 0
-        move = np.where(dodge, sideways.argmax(axis=1) + 1, move)
+        ok = advance & threat & (d_foe > EPS_DIST)                   # no line of fire at d = 0
+        if dodge == "strafe":
+            perp = np.stack([-u[:, 1], u[:, 0]], axis=1)             # CCW normal to the line of fire
+            side = np.where((perp * to_target).sum(axis=1) >= 0, 1.0, -1.0)
+            choice = ((perp * side[:, None]) @ dirs.T).argmax(axis=1) + 1
+        elif dodge == "angle":
+            sin_phi = np.abs(u[:, :1] * dirs[None, :, 1] - u[:, 1:] * dirs[None, :, 0])   # (n, D)
+            allowed = sin_phi >= np.sin(min_angle) - ANGLE_TOL
+            progress = np.where(allowed, to_target @ dirs.T, -np.inf)
+            choice = progress.argmax(axis=1) + 1
+            ok &= allowed.any(axis=1)
+        else:
+            raise ValueError(f"unknown dodge {dodge!r}")
+        move = np.where(ok, choice, move)
 
     turn = turn_toward(heading, _bearing(pos, aim), cfg)
     actions = _assemble(obs, cfg, move, turn, aim)
@@ -199,13 +214,22 @@ def _raid(obs: State, cfg: Config, members: np.ndarray, r_group: float, engage_m
 def raid(obs: State, cfg: Config, rng: np.random.Generator, r_group: float = 2.5,
          engage_margin: float = 2.0) -> np.ndarray:
     """The whole team attacks one enemy base together, at the pace of its rearmost drone."""
-    return _raid(obs, cfg, np.ones(cfg.n_drones, bool), r_group, engage_margin, strafe=False)
+    return _raid(obs, cfg, np.ones(cfg.n_drones, bool), r_group, engage_margin)
 
 
 def raid_strafe(obs: State, cfg: Config, rng: np.random.Generator, r_group: float = 2.5,
                 engage_margin: float = 2.0) -> np.ndarray:
     """raid, but advancing drones under threat move across the enemy's line of fire (alpha)."""
-    return _raid(obs, cfg, np.ones(cfg.n_drones, bool), r_group, engage_margin, strafe=True)
+    return _raid(obs, cfg, np.ones(cfg.n_drones, bool), r_group, engage_margin, dodge="strafe")
+
+
+def raid_angle(obs: State, cfg: Config, rng: np.random.Generator, r_group: float = 2.5,
+               engage_margin: float = 2.0, min_angle: float = PI / 4) -> np.ndarray:
+    """raid, but advancing drones under threat cross the enemy's line of fire while keeping most
+    of their progress: among the legal directions at [min_angle, pi - min_angle] to the line of
+    fire (|sin phi| >= sin(min_angle)), the one with the largest component toward the target."""
+    return _raid(obs, cfg, np.ones(cfg.n_drones, bool), r_group, engage_margin, dodge="angle",
+                 min_angle=min_angle)
 
 
 def split(obs: State, cfg: Config, rng: np.random.Generator, k: int = 1, r_def: float = 4.0,
@@ -213,7 +237,7 @@ def split(obs: State, cfg: Config, rng: np.random.Generator, k: int = 1, r_def: 
     """Drones with canonical index < k run defender; the rest raid as a pack of their own.
     Roles are fixed by index."""
     raiders = np.arange(cfg.n_drones) >= k
-    actions = _raid(obs, cfg, raiders, r_group, engage_margin, strafe=False)
+    actions = _raid(obs, cfg, raiders, r_group, engage_margin)
     if not raiders.all():
         actions[~raiders] = defender(obs, cfg, rng, r_def=r_def)[~raiders]
     return actions
@@ -226,6 +250,7 @@ POLICIES: dict[str, Policy] = {
     "defender": defender,
     "raid": raid,
     "raid_strafe": raid_strafe,
+    "raid_angle": raid_angle,
     "split": split,
 }
 

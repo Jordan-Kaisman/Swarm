@@ -156,6 +156,32 @@ def test_raid_strafe_moves_across_the_line_of_fire():
     np.testing.assert_array_equal(raid(s, cfg, None), POLICIES["raid_strafe"](s, cfg, None))
 
 
+def test_raid_angle_keeps_progress_while_crossing_the_line_of_fire():
+    cfg = one_v_one()                                           # 30x20; red base at (28, 10)
+    # Blue at (20, 10) heads east to the base. A red drone 5 away at bearing 20 degrees is a threat
+    # (5 <= 4 + 2) and sits almost on the path, so east is only 20 degrees off the line of fire.
+    b = np.deg2rad(20.0)
+    s = scenario(cfg, [[20, 10], [20 + 5 * np.cos(b), 10 + 5 * np.sin(b)]], [0.0, PI])
+    a_raid, a_strafe, a_angle = (POLICIES[p](s, cfg, None) for p in ("raid", "raid_strafe", "raid_angle"))
+    assert a_raid[0, 0] == 1       # east: straight at the base, 20 degrees off the line of fire
+    assert a_strafe[0, 0] == 7     # south: the direction closest to perpendicular (110 degrees)
+    # Directions in [45, 135] degrees of the line of fire: N (70), NW (115), S (110), SE (65).
+    # SE has the largest component toward the base.
+    assert a_angle[0, 0] == 8
+    assert a_raid[0, 1] == a_strafe[0, 1] == a_angle[0, 1]   # facing as raid
+    # The band edge counts: a threat due north makes NE and SE exactly 45 degrees off; east (90) wins.
+    s = scenario(cfg, [[20, 10], [20, 14]], [0.0, PI])
+    assert POLICIES["raid_angle"](s, cfg, None)[0, 0] == 1
+    # With 4 directions, the threat at 20 degrees leaves only N and S in the band: north wins
+    # the tie on progress (both 0) by lower index.
+    cfg4 = one_v_one(move_dirs=4)
+    s = scenario(cfg4, [[20, 10], [20 + 5 * np.cos(b), 10 + 5 * np.sin(b)]], [0.0, PI])
+    assert POLICIES["raid_angle"](s, cfg4, None)[0, 0] == 2
+    # No threat: identical to raid.
+    s = scenario(cfg, [[12, 10], [24, 18]], [0.0, PI])
+    np.testing.assert_array_equal(raid(s, cfg, None), POLICIES["raid_angle"](s, cfg, None))
+
+
 def test_split_assigns_roles_by_index():
     cfg = Config(**SMALL_ARENA, base_layout=RAID_LAYOUT)
     n = cfg.n_drones
@@ -164,7 +190,7 @@ def test_split_assigns_roles_by_index():
     s = scenario(cfg, [[3, 6], [12, 9], [12.5, 11]] + FAR_RED, [0.0] * 2 * n)
     a = split(s, cfg, None)
     np.testing.assert_array_equal(a[0], defender(s, cfg, None)[0])
-    np.testing.assert_array_equal(a[1:], _raid(s, cfg, np.array([False, True, True]), 2.5, 2.0, False)[1:])
+    np.testing.assert_array_equal(a[1:], _raid(s, cfg, np.array([False, True, True]), 2.5, 2.0)[1:])
     assert (a[1:, 0] != 0).all()
     assert (raid(s, cfg, None)[1:, 0] == 0).all()       # the whole-team raid does wait
     # Same positions, roles follow the index: with k = 2, drone 1 defends and drone 2 raids alone.
@@ -178,10 +204,10 @@ def test_split_assigns_roles_by_index():
         for k in (0, 1, 2, 3):
             act = split(st, cfg, None, k=k)
             np.testing.assert_array_equal(act[:k], defender(st, cfg, None)[:k])
-            np.testing.assert_array_equal(act[k:], _raid(st, cfg, np.arange(n) >= k, 2.5, 2.0, False)[k:])
+            np.testing.assert_array_equal(act[k:], _raid(st, cfg, np.arange(n) >= k, 2.5, 2.0)[k:])
 
 
-@pytest.mark.parametrize("name", ["raid", "raid_strafe", "split"])
+@pytest.mark.parametrize("name", ["raid", "raid_strafe", "raid_angle", "split"])
 def test_new_policies_play_the_same_from_either_side(name):
     """Game A: `name` as blue against an opponent. Game B starts from the mirrored state with
     the roles swapped and the mirrored uniforms. B must be the mirror image of A at every step:
@@ -191,7 +217,7 @@ def test_new_policies_play_the_same_from_either_side(name):
     P = POLICIES[name]
     rng = np.random.default_rng(0)
     steps = 0
-    for opp in ("rusher", "hunter", "defender", "raid", "raid_strafe", "split"):
+    for opp in ("rusher", "hunter", "defender", "raid", "raid_strafe", "raid_angle", "split"):
         Q = POLICIES[opp]
         for _ in range(2):
             sA = reset(cfg, rng)

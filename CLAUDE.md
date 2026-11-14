@@ -20,7 +20,7 @@ A two-team (blue vs red) drone swarm game that serves as the environment for an 
 - **Policies** always act in the *canonical frame*: they see themselves as blue (rows `0..n-1`, left half). Red is handled through `mirror_state` / `mirror_action`.
 
 ## Commands (create these per the spec)
-- `pytest -q`: fast tests only (~16 s); this is the default via `addopts` in pyproject.toml
+- `pytest -q`: fast tests only (~20 s); this is the default via `addopts` in pyproject.toml
 - `pytest -q -m slow`: the statistical and long tests (duel rates, invariants, symmetry, outcome checks, meta-game CLI; ~1.5 min)
 - `pytest -q -m ""`: everything
 - `python scripts/run_match.py --blue rusher --red hunter --games 1000 --seed 0`
@@ -28,7 +28,8 @@ A two-team (blue vs red) drone swarm game that serves as the environment for an 
 - `python scripts/bench.py`
 - `python scripts/metagame.py` (6 policies, 2000 games per pair, ~4 min on 8 cores; saves `out/metagame_<timestamp>.json`)
 - `python scripts/metagame.py --load out/metagame_<timestamp>.json` (recompute the tables without re-running)
-- `python scripts/sweep.py` (meta-game over arena scale × base_hp, 9 configs; `--load out/metagame_*_s*.json` to re-summarize)
+- `python scripts/sweep.py` (the scale × base_hp preset, 9 configs; `--load out/metagame_*_s*.json` to re-summarize)
+- `python scripts/sweep.py --zip alpha_target_motion=0.5,0.25 beta_shooter_motion=0.25,0.5 --seeds 0 1` (field sweep; `--grid` for products)
 
 ## Working rules
 - Add tests together with each mechanic (spec §13). The mirror-equivariance and purity tests must always pass.
