@@ -16,6 +16,9 @@ analysis = ["scipy"]   # scripts/metagame.py
 [tool.setuptools]
 packages = ["drone_battle"]
 
+[tool.setuptools.package-data]
+drone_battle = ["replay_assets/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]

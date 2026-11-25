@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Swarm replay</title>
+  <style>/* REPLAY_CSS */</style>
+</head>
+<body>
+  <main class="shell">
+    <header class="masthead">
+      <div>
+        <h1>Swarm replay</h1>
+        <p id="match-meta" class="match-meta"></p>
+      </div>
+      <div class="final">
+        <div><span class="label">Match result</span><strong id="outcome"></strong></div>
+        <div><span class="label">Final blue return</span><strong id="final-return"></strong></div>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <section class="panel arena-panel" aria-labelledby="arena-title">
+        <div class="panel-heading">
+          <h2 id="arena-title">Arena</h2>
+          <div class="phases" role="group" aria-label="Arena view">
+            <button type="button" data-phase="before" aria-pressed="false">Before</button>
+            <button type="button" data-phase="action" aria-pressed="false">Action</button>
+            <button type="button" data-phase="after" aria-pressed="true">After</button>
+          </div>
+        </div>
+        <div class="teams">
+          <div class="team blue"><strong id="blue-policy"></strong><span id="blue-assets"></span></div>
+          <div class="team red"><strong id="red-policy"></strong><span id="red-assets"></span></div>
+        </div>
+        <svg id="arena" role="group" aria-label="Arena map. Select a drone or base to inspect it.">
+          <defs>
+            <clipPath id="arena-clip"><rect/></clipPath>
+            <marker id="arrow-requested" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+              <path d="M1 1L7 4L1 7" class="requested-tip"/>
+            </marker>
+            <marker id="arrow-actual" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+              <path d="M1 1L7 4L1 7" class="actual-tip"/>
+            </marker>
+          </defs>
+          <g id="arena-grid" aria-hidden="true"></g>
+          <g id="arena-cone" clip-path="url(#arena-clip)" aria-hidden="true"></g>
+          <g id="arena-shots" aria-hidden="true"></g>
+          <g id="arena-move" aria-hidden="true"></g>
+          <g id="arena-entities" aria-hidden="true"></g>
+        </svg>
+        <div class="arena-key" aria-label="Arena legend">
+          <span><i class="key-drone"></i> Drone heading</span>
+          <span><i class="key-base"></i> Base</span>
+          <span><i class="key-requested"></i> Requested move</span>
+          <span><i class="key-actual"></i> Actual move</span>
+          <span id="shot-key" hidden><i class="key-shot"></i> Solid hit, dashed miss</span>
+        </div>
+      </section>
+
+      <section class="panel inspector" aria-labelledby="inspector-title">
+        <div class="panel-heading">
+          <h2 id="inspector-title">Turn inspector</h2>
+          <span id="transition" class="transition"></span>
+        </div>
+        <div class="entity-picker">
+          <label for="entity">Inspect</label>
+          <select id="entity"></select>
+        </div>
+        <table class="state-table">
+          <thead><tr><th scope="col">State</th><th id="before-column" scope="col">Before</th><th id="after-column" scope="col">After</th></tr></thead>
+          <tbody id="entity-state"></tbody>
+        </table>
+        <section class="inspector-section" aria-labelledby="action-title">
+          <h3 id="action-title">Policy action</h3>
+          <p id="policy-action"></p>
+          <p id="actual-move" class="secondary"></p>
+        </section>
+        <section class="inspector-section" aria-labelledby="events-title">
+          <h3 id="events-title">Automatic events</h3>
+          <ul id="automatic-events"></ul>
+        </section>
+      </section>
+    </div>
+
+    <section class="panel timeline" aria-labelledby="timeline-title">
+      <div class="panel-heading">
+        <h2 id="timeline-title">Replay timeline</h2>
+        <div class="rewards">
+          <span>Blue reward <strong id="turn-reward"></strong></span>
+          <span>Blue return so far <strong id="running-return"></strong></span>
+        </div>
+      </div>
+      <div class="transport">
+        <div class="transport-buttons">
+          <button id="previous-turn" type="button" aria-label="Previous turn" title="Previous turn">‹</button>
+          <button id="play" type="button">Play</button>
+          <button id="next-turn" type="button" aria-label="Next turn" title="Next turn">›</button>
+        </div>
+        <div class="event-buttons">
+          <button id="previous-event" type="button">Previous event</button>
+          <button id="next-event" type="button">Next event</button>
+        </div>
+      </div>
+      <div class="event-tracks" aria-label="Replay event markers">
+        <label id="turn-label" for="turn"></label><input id="turn" type="range" min="0" value="0" step="1">
+        <span>Base damage</span><div class="event-track damage" data-event="damage"></div>
+        <span>Elimination</span><div class="event-track elimination" data-event="elimination"></div>
+        <span>Match end</span><div class="event-track finish" data-event="finish"></div>
+      </div>
+      <p id="turn-events" class="turn-events" aria-live="polite"></p>
+    </section>
+  </main>
+  <script type="application/json" id="replay-data"><!-- REPLAY_DATA --></script>
+  <script>/* REPLAY_JS */</script>
+</body>
+</html>

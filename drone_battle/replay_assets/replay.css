@@ -1,0 +1,192 @@
+:root {
+  color-scheme: dark;
+  --background: #10151d;
+  --panel: #171e29;
+  --arena: #101923;
+  --line: #303d4e;
+  --ink: #eef3f8;
+  --muted: #a8b7c9;
+  --blue: #78c8ff;
+  --red: #ff9890;
+  --damage: #f1b86f;
+  --elimination: #d5aaff;
+  --finish: #92e0b7;
+  font-family: system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  background: var(--background);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+button, select, input { font: inherit; }
+button, select {
+  color: var(--ink);
+  background: #202a38;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  min-height: 34px;
+}
+button { cursor: pointer; padding: 0.35rem 0.65rem; }
+button:enabled:hover, select:hover { border-color: var(--muted); }
+button:disabled { opacity: 0.48; cursor: default; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+h1, h2, h3, p { margin: 0; }
+h1 { font-size: clamp(1.6rem, 3vw, 2.35rem); font-weight: 650; letter-spacing: -0.045em; line-height: 1.08; }
+h2 { font-size: 1rem; font-weight: 650; white-space: nowrap; }
+h3, .label, .transition { font-size: 0.75rem; font-weight: 650; color: var(--muted); }
+.shell { max-width: 88rem; padding: clamp(0.85rem, 3vw, 2.4rem); margin-inline: auto; }
+.masthead, .panel-heading, .teams, .arena-key, .transport, .rewards {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem 1rem;
+}
+.masthead { margin-bottom: 1.35rem; flex-wrap: wrap; gap: 1rem; }
+.match-meta { color: var(--muted); font-size: 0.85rem; margin-top: 0.4rem; }
+.final { display: flex; gap: 0.8rem 1.5rem; flex-wrap: wrap; }
+.final > div { display: grid; gap: 0.22rem; }
+.final strong { font-weight: 650; font-size: 0.92rem; }
+#final-return { font-variant-numeric: tabular-nums; }
+
+.workspace { display: grid; grid-template-columns: minmax(0, 1.9fr) minmax(18rem, 1fr); gap: 0.8rem; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
+.panel-heading { min-height: 2.15rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+.arena-panel, .inspector, .timeline { padding: 0.9rem 1rem; }
+.arena-panel { align-self: start; }
+.phases { display: flex; gap: 0.25rem; }
+.phases button { min-height: 30px; font-size: 0.75rem; background: transparent; color: var(--muted); }
+.phases [aria-pressed="true"] { background: #30405a; border-color: #547097; color: var(--ink); }
+.teams { margin-bottom: 0.55rem; align-items: start; }
+.team { display: grid; gap: 0.15rem; min-width: 0; font-size: 0.78rem; }
+.team strong { color: var(--team); overflow-wrap: anywhere; }
+.team span { color: var(--muted); }
+.team.red { text-align: right; }
+.blue { --team: var(--blue); }
+.red { --team: var(--red); }
+#arena {
+  display: block;
+  width: 100%;
+  height: clamp(280px, 44vh, 490px);
+  border-radius: 8px;
+  background: var(--arena);
+}
+.arena-boundary { fill: none; stroke: #60738a; }
+.arena-midline { stroke: #62758d; stroke-dasharray: 3 5; }
+.arena-home { fill: var(--team); opacity: 0.045; }
+.arena-grid-line { stroke: #2b394c; }
+.arena-axis { fill: var(--muted); font-size: 10px; }
+.entity { cursor: pointer; }
+.entity-label, .base-data {
+  paint-order: stroke fill;
+  stroke: var(--arena);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  fill: var(--ink);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.base-data { fill: var(--muted); font-size: 10px; font-weight: 500; }
+.entity-drone { fill: var(--team); }
+.entity-base { fill: #192332; stroke: var(--team); stroke-width: 1.6px; }
+.entity-hitbox { fill: transparent; }
+.entity-ring { fill: var(--arena); fill-opacity: 0.35; stroke: var(--team); stroke-opacity: 0; }
+.entity:hover .entity-ring, .entity.selected .entity-ring { stroke-opacity: 1; }
+.entity.inactive .entity-ring { stroke-dasharray: 2 3; }
+.entity-cross { stroke: var(--muted); stroke-width: 1.6px; }
+.entity-label.inactive { fill: var(--muted); }
+.cone { fill: var(--team); fill-opacity: 0.13; stroke: var(--team); stroke-opacity: 0.42; }
+.shot { stroke: var(--team); stroke-opacity: 0.27; stroke-width: 1.25px; }
+.shot.related { stroke-opacity: 0.82; stroke-width: 2px; }
+.shot.miss, .move-requested, .heading-requested { stroke-dasharray: 4 3; }
+.move-requested, .heading-requested, .requested-tip { stroke: var(--muted); fill: none; }
+.move-actual, .move-origin, .actual-tip { stroke: var(--ink); fill: none; }
+.move-actual, .move-requested { stroke-width: 1.6px; }
+.move-origin { stroke-width: 1.15px; }
+.arena-key { justify-content: flex-start; flex-wrap: wrap; margin-top: 0.7rem; font-size: 0.75rem; color: var(--muted); }
+.arena-key span { display: inline-flex; align-items: center; gap: 0.45rem; }
+.arena-key span[hidden] { display: none; }
+.arena-key i { display: inline-block; width: 15px; }
+.key-drone { height: 10px; background: var(--muted); clip-path: polygon(0 0, 100% 50%, 0 100%, 26% 50%); }
+.arena-key .key-base { width: 10px; height: 10px; border: 1px solid var(--muted); }
+.key-requested { border-top: 1px dashed var(--muted); }
+.key-actual { border-top: 2px solid var(--ink); }
+.key-shot { border-top: 2px solid var(--red); }
+
+.entity-picker { display: flex; align-items: center; gap: 0.7rem; }
+.entity-picker label { font-size: 0.8rem; color: var(--muted); }
+.entity-picker select { width: 100%; min-width: 0; padding-inline: 0.5rem; text-overflow: ellipsis; }
+.state-table { table-layout: fixed; width: 100%; border-collapse: collapse; margin-top: 0.8rem; text-align: left; font-size: 0.82rem; }
+.state-table th, .state-table td { padding: 0.43rem 0.25rem; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.state-table th { color: var(--muted); font-weight: 500; }
+.state-table thead th:first-child { width: 34%; }
+.state-table th:first-child { padding-left: 0; }
+.inspector-section { margin-top: 0.9rem; font-size: 0.82rem; line-height: 1.42; }
+.inspector-section h3 { margin-bottom: 0.25rem; }
+.secondary { color: var(--muted); margin-top: 0.2rem; }
+#automatic-events { margin: 0; padding-left: 1.1em; }
+#automatic-events li + li { margin-top: 0.23rem; }
+
+.timeline { margin-top: 0.8rem; }
+.timeline .panel-heading { margin-bottom: 0.45rem; }
+.rewards { flex-wrap: wrap; font-size: 0.77rem; color: var(--muted); }
+.rewards strong { color: var(--ink); font-weight: 600; margin-left: 0.25rem; }
+.transport { flex-wrap: wrap; }
+.transport-buttons, .event-buttons { display: flex; gap: 0.32rem; flex: none; font-size: 0.8rem; }
+.transport-buttons button { min-width: 34px; }
+#play { min-width: 58px; }
+#turn { margin: 0; width: 100%; height: 24px; accent-color: var(--blue); }
+#turn-label { color: var(--ink); font-weight: 550; }
+.event-tracks {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 0.04rem 0.8rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 0.7rem;
+}
+.event-track {
+  --marker: var(--damage);
+  position: relative;
+  height: 16px;
+  background: linear-gradient(var(--line), var(--line)) center / 100% 1px no-repeat;
+  margin-inline: 0.46rem;
+}
+.event-track.elimination { --marker: var(--elimination); }
+.event-track.finish { --marker: var(--finish); }
+.event-marker, .event-cursor { position: absolute; top: 50%; left: var(--position); transform: translate(-50%, -50%); }
+.event-track .event-marker {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 16px;
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+.event-marker::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--marker);
+  background: var(--marker);
+  border-radius: 50%;
+}
+.elimination .event-marker::after { border-radius: 1px; transform: rotate(45deg); }
+.finish .event-marker::after { border-radius: 1px; }
+.event-marker:hover::after, .event-marker[aria-current="step"]::after { width: 9px; height: 9px; }
+.event-cursor { height: 15px; border-left: 1px solid var(--ink); pointer-events: none; }
+.turn-events { margin-top: 0.55rem; font-size: 0.78rem; color: var(--muted); min-height: 1.15rem; }
+
+@media (max-width: 760px) {
+  .workspace { grid-template-columns: minmax(0, 1fr); }
+  #arena { height: clamp(248px, 47vh, 430px); }
+}
+@media (max-width: 535px) {
+  .timeline .panel-heading { align-items: flex-start; flex-direction: column; }
+  .arena-panel, .inspector, .timeline { padding: 0.8rem 0.7rem; }
+  .arena-key { column-gap: 0.65rem; }
+}

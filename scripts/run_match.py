@@ -2,6 +2,7 @@
 
     python scripts/run_match.py --blue rusher --red hunter --games 1000 --seed 0
     python scripts/run_match.py --blue rusher --red hunter --games 1 --render out.mp4
+    python scripts/run_match.py --blue rusher --red hunter --games 1 --replay out/replay.html
     python scripts/run_match.py --blue hunter --red hunter --games 2000 --hist lengths.png
     python scripts/run_match.py --blue defender:r_def=6 --red rusher --config base_hp=8 n_drones=4
 
@@ -104,6 +105,7 @@ def main() -> None:
     ap.add_argument("--games", type=int, default=100)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--render", metavar="PATH", help="animate the first game (.mp4, or .gif fallback)")
+    ap.add_argument("--replay", metavar="PATH", help="save an interactive HTML replay of the first game")
     ap.add_argument("--fps", type=int, default=6)
     ap.add_argument("--hist", metavar="PATH", help="save a histogram of episode lengths (e.g. lengths.png)")
     ap.add_argument("--config", nargs="*", default=[], metavar="KEY=VALUE", help="Config overrides")
@@ -115,12 +117,17 @@ def main() -> None:
     t0 = time.perf_counter()
     results = []
     for g, seed in enumerate(game_seeds(args.seed, args.games)):
-        record = bool(args.render) and g == 0
+        record = bool(args.render or args.replay) and g == 0
         res = play_episode(cfg, blue, red, seed, record=record)
-        if record:
+        if record and args.replay:
+            from drone_battle.replay import write_replay
+            path = write_replay(res, cfg, args.replay, blue=args.blue, red=args.red, seed=args.seed)
+            print(f"saved game 0 replay ({res.length} steps, {res.cause}) to {path}")
+        if record and args.render:
             from drone_battle.render import animate
             path = animate(res.trajectory, cfg, args.render, fps=args.fps)
             print(f"rendered game 0 ({res.length} steps, {res.cause}) to {path}")
+        if record:
             res.trajectory = None
         results.append(res)
     elapsed = time.perf_counter() - t0

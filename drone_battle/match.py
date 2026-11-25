@@ -130,7 +130,10 @@ def return_outcome(blue_return: float, tol: float = RETURN_TOL) -> str:
 
 
 def play_episode(cfg: Config, blue_policy, red_policy, seed, record: bool = False) -> EpisodeResult:
-    """Play one game. `seed` is an int, a sequence of ints, or a SeedSequence."""
+    """Play one game. `seed` is an int, a sequence of ints, or a SeedSequence.
+
+    Recorded info includes the world-frame actions and blue reward.
+    """
     ss = seed if isinstance(seed, np.random.SeedSequence) else np.random.SeedSequence(seed)
     # Derive the three streams without ss.spawn(), which mutates ss and would make replaying
     # the same SeedSequence object give a different game.
@@ -161,7 +164,7 @@ def play_episode(cfg: Config, blue_policy, red_policy, seed, record: bool = Fals
             shots[team, k] += 1
             hits[team, k] += hit
         if record:
-            trajectory.append((state, info))
+            trajectory.append((state, {**info, "actions": actions.copy(), "reward": float(reward)}))
 
     winner, cause = classify_outcome(cfg, state, truncated)
     return EpisodeResult(

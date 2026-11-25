@@ -31,6 +31,7 @@ drone_battle/
   mirror.py     # mirror_state, mirror_action, mirror_team_action, swap_blocks
   env.py        # reset, step (phases as private functions), observe
   render.py     # render(state, cfg, info), animate(trajectory, cfg, path), length_histogram
+  replay.py     # write_replay(result, cfg, path) exports a recorded episode as HTML
   policies.py   # random, rusher, hunter, defender, raid, raid_strafe, split
   match.py      # play_episode, run_match, outcome classification, return terms, summarize
 scripts/
@@ -278,6 +279,9 @@ Reserved for v1 (do not implement now):
 
 `animate(trajectory, cfg, path)` writes an mp4 via ffmpeg, falling back to a gif.
 
+`python scripts/run_match.py --games 1 --replay out/replay.html` saves a replay that opens directly in a browser.
+Click a drone or base in the arena, or select it in the turn inspector. Step or scrub through turns to compare state, the policy command in world coordinates, and the simulator's resolution. The event markers jump to base damage, drone eliminations, and the match end. Displayed rewards and returns are from blue's perspective.
+
 ---
 
 ## 11. Scripted policies
@@ -308,7 +312,7 @@ Helpers:
 ## 12. Match runner
 
 `scripts/run_match.py`:
-- Arguments: `--blue`, `--red`, `--games`, `--seed`, `--render PATH` (renders the first game), `--hist PATH` (saves a histogram of episode lengths) and `--config` (overrides).
+- Arguments: `--blue`, `--red`, `--games`, `--seed`, `--render PATH` (animates the first game), `--replay PATH` (exports an interactive replay of the first game), `--hist PATH` (saves a histogram of episode lengths) and `--config` (overrides).
 
 **Returns.** The environment is undiscounted. A game's return is the plain sum of its per-step rewards (§6.7), from blue's perspective; red's return is the negative.
 

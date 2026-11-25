@@ -363,11 +363,14 @@ def test_length_histogram_writes_png(tmp_path):
 def test_run_match_cli(tmp_path):
     root = Path(__file__).resolve().parents[1]
     hist = tmp_path / "lengths.png"
+    replay = tmp_path / "out" / "replay.html"
     out = subprocess.run([sys.executable, str(root / "scripts" / "run_match.py"), "--blue", "rusher",
                           "--red", "hunter", "--games", "20", "--seed", "0", "--hist", str(hist),
-                          "--config", "n_drones=2"],
+                          "--replay", str(replay), "--config", "n_drones=2"],
                          capture_output=True, text=True, check=True, cwd=tmp_path).stdout
     for heading in ("Knockout outcome", "Return-based outcome", "Knockout vs return", "disagreements:",
                     "median", "IQR"):
         assert heading in out
     assert hist.exists()
+    assert replay.exists()
+    assert out.count("saved game 0 replay") == 1
